@@ -83,7 +83,7 @@ module.exports = class IncludeDependencies {
     this.minifyPatterns = service.package.minify.patterns;
     this.absoluteProjectPathPrefix = cwd+"/";
 
-    this.buildDirectory = BUILD_DIRECTORY + path.basename(__dirname);
+    this.buildDirectory = BUILD_DIRECTORY + path.basename(cwd);
 
 
     var matcherOptions = this._matcherOptions = {

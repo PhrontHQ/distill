@@ -375,7 +375,7 @@ module.exports = class IncludeDependencies {
       //var shouldMinifyFileAtProjectRelativePath = !shouldExclude || shouldInclude;
       var shouldMinifyFileAtProjectRelativePath = shouldInclude && !shouldExclude;
 
-      console.log("shouldMinifyFileAtProjectRelativePath "+ relativePath +" is " + shouldMinifyFileAtProjectRelativePath);
+      //console.log("shouldMinifyFileAtProjectRelativePath "+ relativePath +" is " + shouldMinifyFileAtProjectRelativePath);
       return shouldMinifyFileAtProjectRelativePath;
   }
   

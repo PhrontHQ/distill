@@ -80,7 +80,7 @@ module.exports = class IncludeDependencies {
     const service = this.serverless.service;
     this.individually = service.package && service.package.individually;
     this.minify = service.package && service.package.minify;
-    this.minifyPatterns = service.package.minify.patterns;
+    this.minifyPatterns = service.custom.distill.patterns;
     this.absoluteProjectPathPrefix = cwd+"/";
 
     this.buildDirectory = BUILD_DIRECTORY + path.basename(cwd);

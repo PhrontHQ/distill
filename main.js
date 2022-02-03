@@ -18,6 +18,7 @@ const micromatch = require('micromatch');
 const getDependencyList = require('./get-dependency-list');
 
 const zip = require("zip-a-folder").zip;
+const { throws } = require("assert");
 
 function union(a = [], b = []) {
   const existing = [].concat(a);
@@ -80,7 +81,8 @@ module.exports = class IncludeDependencies {
     const service = this.serverless.service;
     this.individually = service.package && service.package.individually;
     this.minify = service.package && service.package.minify;
-    this.minifyPatterns = service.custom.distill.patterns;
+    this.include = service.custom.distill.include;
+    this.minifyPatterns = service.custom.distill.minifyPatterns;
     this.absoluteProjectPathPrefix = cwd+"/";
 
     this.buildDirectory = BUILD_DIRECTORY + path.basename(cwd);
@@ -337,7 +339,7 @@ module.exports = class IncludeDependencies {
   async visitMjson(base, file) {
     const parsed = JSON.parse(file)
     const dependencies = this.parseMJSONDependencies(parsed)
-    await Promise.all(dependencies.map(path => this.visit(base, path)))
+    await Promise.all(dependencies.map(path => this.visitFile(base, path)))
     //Removes white spaces
     return JSON.stringify(parsed)
   }
@@ -391,7 +393,7 @@ module.exports = class IncludeDependencies {
         const visits = []
         
         for (let aRequire of requires) {
-          visits.push(this.visit(absolutePath, aRequire))
+          visits.push(this.visitFile(absolutePath, aRequire))
         }
         await Promise.all(visits)
 
@@ -422,8 +424,43 @@ module.exports = class IncludeDependencies {
       return file
     }
   }
+
+  async visit(base, aPath) {
+    const absolutePath = path.join(base, aPath);
+    if(fs.statSync(absolutePath).isDirectory()) {
+      return this.visitDirectory(base, aPath);
+    } else {
+      return this.visitFile(base, aPath);
+    }
+  }
+
+  async visitDirectory(base, aPath) {
+      const absolutePath = path.join(base, aPath);
+      const entries = fs.readdirSync(absolutePath, { withFileTypes: true });
   
-  async visit(base, path) {
+      // Get files within the current directory and add a path key to the file objects
+      const filePromises = entries
+          .filter(file => !file.isDirectory())
+          //.map(file => ({ ...file, path: path + file.name }));
+          .map(file => { 
+            return this.visitFile(base, `${aPath}/${file.name}`)
+          });
+    
+      // Get folders within the current directory
+      const folders = entries.filter(folder => folder.isDirectory());
+  
+      for (const folder of folders)
+          /*
+            Add the found files within the subdirectory to the files array by calling the
+            current function itself
+          */
+            filePromises.push(...await this.visitDirectory(base,`${aPath}/${folder.name}`));
+  
+      return Promise.all(filePromises);
+  
+  }
+
+  async visitFile(base, path) {
     //process.stdout.write("\rFiles: " + visitedPaths.size)
     if (this.moduleIdWithoutExportSymbol(path) !== "global") {
       try {
@@ -467,7 +504,7 @@ module.exports = class IncludeDependencies {
           fs.writeFileSync(outputPath, output)
 
           await Promise.all([
-            this.visit(absolutePath, "package.json")
+            this.visitFile(absolutePath, "package.json")
           ])
         }
       } catch (error) {}
@@ -497,8 +534,12 @@ module.exports = class IncludeDependencies {
         include.unshift(fileBasename)
       }
 
+      if(this.include) {
+        include.push.apply(include,this.include);
+      }
+
       return Promise.all(include.map(entryPoint => this.visit(this.serverless.serviceDir, entryPoint))).then(() => {
-        return this.visit(cwd, "package-lock.json")
+        return this.visitFile(cwd, "package-lock.json")
         console.log("\nSize: " + [...visitedPaths].reduce((p, [,c]) => p + c.size, 0))
   
         console.timeEnd("processNodeFunction");  

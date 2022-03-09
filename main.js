@@ -539,10 +539,11 @@ module.exports = class IncludeDependencies {
       }
 
       return Promise.all(include.map(entryPoint => this.visit(this.serverless.serviceDir, entryPoint))).then(() => {
-        return this.visitFile(cwd, "package-lock.json")
+        var result = this.visitFile(cwd, "package-lock.json");
         console.log("\nSize: " + [...visitedPaths].reduce((p, [,c]) => p + c.size, 0))
-  
         console.timeEnd("processNodeFunction");  
+        return result;
+;
       })
     }
     // const dependencies = this.getDependencies(fileName, service.package.patterns);

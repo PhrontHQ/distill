@@ -323,16 +323,16 @@ module.exports = class IncludeDependencies {
   minimizePackageLockJson(parsed) {
     for (let name of Object.getOwnPropertyNames(parsed.packages)) {
       try {
-        require.resolve(cwd + "/" + this.buildDirectory +  "/" + name)
+        if(!fs.existsSync(`${cwd}/${this.buildDirectory}/${name}`)) {
+            delete parsed.packages[name]
+        }
       } catch (error) {
-        delete parsed.packages[name]
+        console.error(error);
       }
     }
-    for (let name of Object.getOwnPropertyNames(parsed.dependencies)) {
-      if (!fs.existsSync(cwd + "/" + this.buildDirectory +  "/node_modules/" + name)) {
-        delete parsed.dependencies[name]
-      }
-    }
+
+    delete parsed.dependencies;
+
     this.minimizePackageLockJsonNode(parsed)
   }
 

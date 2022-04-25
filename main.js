@@ -283,9 +283,10 @@ module.exports = class IncludeDependencies {
     }
   }
 
-  parseMJSONDependencies(jsonRoot) {
+  parseMJSONDependencies(jsonRoot, base) {
     var rootEntries = Object.keys(jsonRoot),
-        i=0, iLabel, dependencies = [], iLabelObject;
+        i=0, iLabel, dependencies = [], iLabelObject,
+        values, valuesKeys, j, countJ, jModule, jKeyValue;
 
     while ((iLabel = rootEntries[i])) {
         iLabelObject = jsonRoot[iLabel];
@@ -297,6 +298,30 @@ module.exports = class IncludeDependencies {
         }
         else if(iLabelObject.hasOwnProperty("object")) {
             dependencies.push(this.moduleIdWithoutExportSymbol(iLabelObject["object"]));
+        }
+
+        //Check for modules.
+        
+        values = iLabelObject.values || iLabelObject.properties;
+        valuesKeys = values ? Object.keys(values) : null;
+
+        if(valuesKeys) {
+          for(j=0, countJ = valuesKeys.length, jModule, jKeyValue; (j < countJ); j++) {
+            if(typeof (jKeyValue = values[valuesKeys[j]]) === "object" && jKeyValue && jKeyValue.hasOwnProperty("%")) {
+              jModule = this.moduleIdWithoutExportSymbol(jKeyValue["%"]);
+              /*
+                We need to eliminate cases where the module refers to the current file,
+                like the objectDescriptorModule property in serialized "montage/core/meta/module-object-descriptor"
+
+                This is not perfect but will do for now.
+              */
+             if(!(jModule.startsWith("./") && (base.endsWith(jModule.substring(1))))) {
+              //console.debug("Adding dependency "+jModule);
+                dependencies.push(jModule);
+             }
+            }
+
+          }
         }
 
         i++;
@@ -338,7 +363,7 @@ module.exports = class IncludeDependencies {
 
   async visitMjson(base, file) {
     const parsed = JSON.parse(file)
-    const dependencies = this.parseMJSONDependencies(parsed)
+    const dependencies = this.parseMJSONDependencies(parsed, base)
     await Promise.all(dependencies.map(path => this.visitFile(base, path)))
     //Removes white spaces
     return JSON.stringify(parsed)
